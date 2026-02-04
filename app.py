@@ -3,78 +3,91 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Page config
-st.set_page_config(page_title="Customer Segmentation", layout="wide")
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans, AgglomerativeClustering
+from sklearn.metrics import silhouette_score
 
-# Title
-st.title("Customer Segmentation using Clustering")
+st.set_page_config(page_title="Generic Clustering App", layout="wide")
+st.title("Generic Customer Segmentation using Clustering")
 
-# Load data
-@st.cache_data
-def load_data():
-    return pd.read_csv("marketing_campaign.csv")
+# Upload file
+uploaded_file = st.file_uploader("Upload a CSV file", type=["csv"])
 
-df = load_data()
+if uploaded_file is not None:
+    # Load data
+    df = pd.read_csv(uploaded_file)
 
-# Sidebar
-st.sidebar.header("Navigation")
-option = st.sidebar.selectbox(
-    "Select Section",
-    ["Dataset Overview", "EDA", "Cluster Analysis"]
-)
-
-# -------------------------------
-# DATASET OVERVIEW
-# -------------------------------
-if option == "Dataset Overview":
-    st.subheader("Dataset Overview")
-    st.write("Number of Rows:", df.shape[0])
-    st.write("Number of Columns:", df.shape[1])
+    st.subheader("Dataset Preview")
+    st.write("Rows:", df.shape[0], "| Columns:", df.shape[1])
     st.dataframe(df.head())
 
-# -------------------------------
-# EDA
-# -------------------------------
-elif option == "EDA":
-    st.subheader("Exploratory Data Analysis")
+    # Select numeric columns
+    numeric_df = df.select_dtypes(include='number')
 
-    st.write("### Distribution of Numerical Features")
-    fig, ax = plt.subplots()
-    df[['Income','Age','Recency','TotalSpend']].hist(bins=20, ax=ax)
-    st.pyplot(fig)
+    if numeric_df.shape[1] < 2:
+        st.error("Dataset must contain at least 2 numeric columns for clustering.")
+        st.stop()
 
-    st.write("### Boxplot for Outlier Detection")
-    fig, ax = plt.subplots(figsize=(8,4))
-    sns.boxplot(data=df[['Income','TotalSpend','Recency']], ax=ax)
-    st.pyplot(fig)
+    st.subheader("Using Numeric Features Only")
+    st.write(numeric_df.columns.tolist())
 
-    st.write("### Correlation Heatmap")
-    fig, ax = plt.subplots(figsize=(8,6))
-    sns.heatmap(
-        df[['Income','Age','Recency','TotalSpend',
-            'NumWebPurchases','NumStorePurchases',
-            'NumCatalogPurchases','NumDealsPurchases',
-            'Children']].corr(),
-        cmap='coolwarm',
-        ax=ax
-    )
-    st.pyplot(fig)
+    # Drop missing values
+    numeric_df = numeric_df.dropna()
 
-# -------------------------------
-# CLUSTER ANALYSIS
-# -------------------------------
-elif option == "Cluster Analysis":
-    st.subheader("Cluster Analysis")
+    # Distribution
+    st.subheader("Distribution of Numeric Features")
+    numeric_df.hist(bins=20, figsize=(10,6))
+    st.pyplot(plt.gcf())
+    plt.clf()
 
-    st.write("### Cluster-wise Summary")
-    cluster_profile = df.groupby('Final_Cluster').mean()
-    st.dataframe(cluster_profile)
+    # Boxplot
+    st.subheader("Boxplot (Outlier Detection)")
+    sns.boxplot(data=numeric_df)
+    st.pyplot(plt.gcf())
+    plt.clf()
 
-    selected_cluster = st.selectbox(
-        "Select Cluster to View Customers",
-        df['Final_Cluster'].unique()
-    )
+    # Correlation Heatmap
+    st.subheader("Correlation Heatmap")
+    sns.heatmap(numeric_df.corr(), cmap="coolwarm")
+    st.pyplot(plt.gcf())
+    plt.clf()
 
-    st.write(f"Customers in Cluster {selected_cluster}")
-    st.dataframe(df[df['Final_Cluster'] == selected_cluster])
+    # Scaling
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(numeric_df)
 
+    # Number of clusters
+    k = st.slider("Select number of clusters (K)", 2, 8, 4)
+
+    # KMeans
+    kmeans = KMeans(n_clusters=k, random_state=42)
+    labels_kmeans = kmeans.fit_predict(X_scaled)
+    kmeans_score = silhouette_score(X_scaled, labels_kmeans)
+
+    # Hierarchical
+    hierarchical = AgglomerativeClustering(n_clusters=k)
+    labels_hier = hierarchical.fit_predict(X_scaled)
+    hier_score = silhouette_score(X_scaled, labels_hier)
+
+    # Comparison
+    st.subheader("Model Comparison")
+    comparison = pd.DataFrame({
+        "Model": ["KMeans", "Hierarchical"],
+        "Silhouette Score": [kmeans_score, hier_score]
+    })
+    st.dataframe(comparison)
+
+    # Final model selection
+    if kmeans_score >= hier_score:
+        st.success("KMeans selected as Final Model")
+        df["Final_Cluster"] = labels_kmeans
+    else:
+        st.success("Hierarchical selected as Final Model")
+        df["Final_Cluster"] = labels_hier
+
+    # Show clustered data
+    st.subheader("Clustered Dataset Preview")
+    st.dataframe(df.head())
+
+else:
+    st.info("Please upload a CSV file to begin.")
