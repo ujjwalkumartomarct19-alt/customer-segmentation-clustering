@@ -12,7 +12,7 @@ st.title("Customer Segmentation using Clustering")
 # Load data
 @st.cache_data
 def load_data():
-    return pd.read_csv("customer_segments_final.csv")
+    return pd.read_csv("marketing_campaign.csv")
 
 df = load_data()
 
@@ -77,3 +77,4 @@ elif option == "Cluster Analysis":
 
     st.write(f"Customers in Cluster {selected_cluster}")
     st.dataframe(df[df['Final_Cluster'] == selected_cluster])
+
