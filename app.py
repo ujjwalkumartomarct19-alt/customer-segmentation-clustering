@@ -44,6 +44,20 @@ if all(col in numeric_df.columns for col in [
     ].sum(axis=1)
 
 # -------------------------------
+# SELECT KEY FEATURES FOR EDA
+# -------------------------------
+key_features = [
+    col for col in [
+        'Income',
+        'Recency',
+        'Age',
+        'TotalSpend',
+        'NumWebPurchases',
+        'NumStorePurchases'
+    ] if col in numeric_df.columns
+]
+
+# -------------------------------
 # SIDEBAR
 # -------------------------------
 st.sidebar.header("Navigation")
@@ -62,25 +76,49 @@ if option == "Dataset Overview":
     st.dataframe(df.head())
 
 # -------------------------------
-# EDA
+# EDA (CLEAN VERSION)
 # -------------------------------
 elif option == "EDA":
     st.subheader("Exploratory Data Analysis")
 
-    st.write("### Distribution of Numerical Features")
-    fig, ax = plt.subplots()
-    numeric_df.hist(bins=20, ax=ax)
-    st.pyplot(fig)
+    # ---------------- Distribution ----------------
+    st.write("### Distribution of Key Numerical Features")
 
+    fig, axes = plt.subplots(2, 3, figsize=(12, 8))
+    axes = axes.flatten()
+
+    for i, col in enumerate(key_features):
+        axes[i].hist(numeric_df[col], bins=20)
+        axes[i].set_title(col)
+
+    # Remove empty plots
+    for j in range(i + 1, len(axes)):
+        fig.delaxes(axes[j])
+
+    plt.tight_layout()
+    st.pyplot(fig)
+    plt.clf()
+
+    # ---------------- Boxplot ----------------
     st.write("### Boxplot for Outlier Detection")
-    fig, ax = plt.subplots(figsize=(8,4))
-    sns.boxplot(data=numeric_df, ax=ax)
-    st.pyplot(fig)
 
+    plt.figure(figsize=(10, 5))
+    sns.boxplot(data=numeric_df[key_features])
+    plt.xticks(rotation=45)
+    st.pyplot(plt.gcf())
+    plt.clf()
+
+    # ---------------- Heatmap ----------------
     st.write("### Correlation Heatmap")
-    fig, ax = plt.subplots(figsize=(8,6))
-    sns.heatmap(numeric_df.corr(), cmap='coolwarm', ax=ax)
-    st.pyplot(fig)
+
+    plt.figure(figsize=(10, 6))
+    sns.heatmap(
+        numeric_df[key_features].corr(),
+        annot=True,
+        cmap='coolwarm'
+    )
+    st.pyplot(plt.gcf())
+    plt.clf()
 
 # -------------------------------
 # CLUSTER ANALYSIS
@@ -90,7 +128,7 @@ elif option == "Cluster Analysis":
 
     # Scaling
     scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(numeric_df)
+    X_scaled = scaler.fit_transform(numeric_df[key_features])
 
     # Select number of clusters
     k = st.slider("Select number of clusters", 2, 8, 4)
